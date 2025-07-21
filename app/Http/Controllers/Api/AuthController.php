@@ -48,8 +48,15 @@ class AuthController extends Controller
         }
 
         $user = User::where('email', $request->email)->firstOrFail();
-        $token = $user->createToken('auth_token')->plainTextToken;
+        // If user already has a token, prevent login
+        if ($user->tokens()->exists()) {
+            return response()->json([
+                'error' => 'User is already logged in.',
 
+            ], 403);
+        }
+        // Create a new token
+        $token = $user->createToken('auth_token')->plainTextToken;
         return response()->json([
             'user' => $user,
             'access_token' => $token,
@@ -59,8 +66,13 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
-
+        $token = $request->user()->currentAccessToken();
+        if (!$token) {
+            return response()->json([
+                'error' => 'User is already logged out.'
+            ], 401);
+        }
+        $token->delete();
         return response()->json([
             'message' => 'Logged out successfully'
         ]);
