@@ -14,13 +14,13 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
+            'username' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
         ]);
 
         $user = User::create([
-            'name' => $request->name,
+            'username' => $request->username,
             'email' => $request->email,
             'password' => Hash::make($request->password),
         ]);
@@ -37,25 +37,22 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $request->validate([
-            'email' => 'required|email',
+            'username' => 'required|string',
             'password' => 'required',
         ]);
 
-        if (!Auth::attempt($request->only('email', 'password'))) {
+        $user = User::where('username', $request->username)->first();
+        if (!$user || !Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
-                'email' => ['The provided credentials are incorrect.'],
+                'username' => ['The provided credentials are incorrect.'],
             ]);
         }
 
-        $user = User::where('email', $request->email)->firstOrFail();
-        // If user already has a token, prevent login
         if ($user->tokens()->exists()) {
             return response()->json([
-                'error' => 'User is already logged in.',
-
+                'error' => 'User is already logged in.'
             ], 403);
         }
-        // Create a new token
         $token = $user->createToken('auth_token')->plainTextToken;
         return response()->json([
             'user' => $user,
